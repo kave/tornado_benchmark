@@ -13,12 +13,12 @@ threads = []
 
 def req_call(id):
     start_time = time.time()
-    url = 'http://localhost:8888/'
+    url = 'http://localhost:8888/sleep2'
     print('Thread #{} {} Finished {}'.format(id, requests.get(url), (time.time() - start_time)))
 
 
 count = 1
-while count < 6:
+while count < 8:
     print('Thread #{} Started'.format(count))
     thread = Greenlet.spawn(req_call, count)
     threads.append(thread)

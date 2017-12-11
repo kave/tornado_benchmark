@@ -8,10 +8,7 @@ from tornado.httpserver import HTTPServer
 from tornado.platform.asyncio import AsyncIOMainLoop
 from tornado.web import Application
 from tornado import concurrent
-from tornado.concurrent import run_on_executor
 
-
-# executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
@@ -19,49 +16,39 @@ class MainHandler(tornado.web.RequestHandler):
         self.write("Hello, world %s" % time.time())
 
 
-class SleepHandler(tornado.web.RequestHandler):
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+class BackGroundSleepHandler(tornado.web.RequestHandler):
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
 
-    # @run_on_executor
     def sleep_time(self, n):
         start_time = time.time()
         time.sleep(n)
-        print("Time to wake! %s" % (time.time() - start_time))
+        end_time = time.time() - start_time
+        print("Time to wake! %s" % end_time)
+        return end_time
 
-    # @asyncio.coroutine
-    def get(self, n):
-        # Start the background operations
-        # Working :D
-        # start_time = time.time()
-        # blocking_tasks = [asyncio.get_event_loop().run_in_executor(executor, time.sleep, float(n))]
+    async def get(self):
+        print('correct')
+        futures = asyncio.get_event_loop().run_in_executor(self.executor, self.sleep_time, 1)
 
-        asyncio.get_event_loop().run_in_executor(self.executor, self.sleep_time, float(n))
+        for response in await asyncio.gather(futures):
+            self.write('Time to wake! %s' % response)
 
-        # fut = self.executor.submit(self.sleep_time, float(n))
-        # await asyncio.wrap_future(fut)
 
-        # for future in asyncio.as_completed(blocking_tasks):
-        #     try:
-        #         # result = await future
-        #         completed, pending = await asyncio.wait(blocking_tasks)
-        #         results = [t.result() for t in completed]
-        #
-        #         self.write("Time to wake! %s" % (time.time() - start_time))
-        #         self.finish()
-        #     except Exception as e:
-        #         print(e)
+class AwaitedSleepHandler(tornado.web.RequestHandler):
 
-        # Not Working
-        # futures = [executor.submit(time.sleep, float(n))]
-        # for future in concurrent.futures.as_completed(futures):
-        #     try:
-        #         future.result()
-        #     except Exception as e:
-        #         print(e)
+    async def sleep_time(self, n):
+        start_time = time.time()
+        time.sleep(n)
+        end_time = time.time() - start_time
+        print("Time to wake! %s" % end_time)
+        self.write('Time to wake! %s' % end_time)
+        self.finish()
 
-        # def on_complete(self, res):
-        #     self.write("{}".format(res))
-        #     self.finish()
+    async def get(self):
+        print('correct')
+        response = await asyncio.ensure_future(self.sleep_time(1))
+
+        return 200
 
 
 def main():
@@ -76,7 +63,8 @@ def main():
 
     app = Application(handlers=[
         (r"/", MainHandler),
-        (r"/sleep/(\d+)", SleepHandler),
+        (r"/sleep", BackGroundSleepHandler),
+        (r"/sleep2", AwaitedSleepHandler),
     ])
 
     server = HTTPServer(app)
